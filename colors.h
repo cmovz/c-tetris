@@ -1,0 +1,10 @@
+#define DARK_CYAN    0
+#define DARK_RED     1
+#define DARK_BROWN   2
+#define DARK_MAGENTA 3
+#define DARK_GRAY    4
+#define DARK_GREEN   5
+#define DARK_BLUE    6
+#define GRAY         7
+#define BLACK        8
+#define COLOR_COUNT  9
