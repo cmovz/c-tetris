@@ -1,6 +1,7 @@
 #include "ai.h"
 #include "pieces.h"
 #include <stdlib.h>
+#include <stdio.h>
 #include <SDL2/SDL.h>
 
 struct minmax {
@@ -14,6 +15,17 @@ static int float_cmp(const void *aptr, const void *bptr)
 {
   const float *a = aptr, *b = bptr;
   return *a < *b ? -1 : 1;
+}
+
+static inline float compute_fitness_sai(
+  struct simple_ai *sai, struct dense_grid *dg, int filled_rows
+)
+{
+  return filled_rows * sai->a
+    - dg->bumpiness * sai->b
+    - dg->aggregate_height * sai->c
+    - dg->holes * sai->d
+    - dg->wells_depth * sai->e;
 }
 
 static inline float compute_fitness(
@@ -50,8 +62,8 @@ static void compute_median_fitness2(
           game_over = 1;
         
         if (game_over) {
-          pf1->fitness = -10000000.0f;
-          return;
+          fitnesses[pos] = -10000000.0f;
+          pf1->pfs2[pos].fitness = fitnesses[pos];
         }
         else {
           int r = dense_grid_integrate_piece(&pf1->pfs2[pos].dg);
@@ -90,8 +102,7 @@ static void compute_median_fitness1(struct ai *ai, struct possible_fit *pf)
           game_over = 1;
         
         if (game_over) {
-          pf->fitness = -10000000.0f;
-          return;
+          fitnesses[pos] = -10000000.0f;
         }
         else {
           dense_grid_integrate_piece_fast(&pf->pfs1[pos].dg);
@@ -223,7 +234,7 @@ void ai_run(struct ai *ai, struct dense_grid *dg)
           compute_median_fitness1(ai, ai->pfs + pos);
         }
       }
-      dg->piece_rot = original_rot;    
+      dg->piece_rot = original_rot;
     }
   }
 
@@ -261,4 +272,206 @@ void ai_adjust_position(struct ai *ai, struct dense_grid *dg)
 
   if (!moved)
     send_keypress(SDL_SCANCODE_DOWN);
+}
+
+void ai_adjust_position_virtual(struct ai *ai, struct dense_grid *dg)
+{
+  while (dg->piece_rot != ai->best_rot) {
+    if (!dense_grid_rotate_piece(dg)) {
+      dense_grid_rotate_piece_backwards_no_check(dg);
+      break;
+    }
+  }
+
+  while (dg->piece_x < ai->best_x) {
+    if (!dense_grid_move_piece(dg, 1, 0)) {
+      dense_grid_move_piece_no_check(dg, -1, 0);
+      break;
+    }
+  }
+
+  while (dg->piece_x > ai->best_x) {
+    if (!dense_grid_move_piece(dg, -1, 0)) {
+      dense_grid_move_piece_no_check(dg, 1, 0);
+      break;
+    }
+  }
+}
+
+struct simple_ai *simple_ai_new(float a, float b, float c, float d, float e)
+{
+  struct simple_ai *sai = malloc(sizeof *sai);
+  if (!sai)
+    return NULL;
+  
+  simple_ai_init(sai, a, b, c, d, e);
+  return sai;
+}
+
+void simple_ai_delete(struct simple_ai *sai)
+{
+  free(sai);
+}
+
+void simple_ai_init(
+  struct simple_ai *sai, float a, float b, float c, float d, float e
+)
+{
+  sai->a = a;
+  sai->b = b;
+  sai->c = c;
+  sai->d = d;
+  sai->e = e;
+  sai->best_x = 0;
+  sai->best_rot = 0;
+}
+
+void simple_ai_run(struct simple_ai *sai, struct dense_grid *dg)
+{
+  int best_rot = 0;
+  int best_x = 6;
+  float best_fitness = -10000000.f;
+
+  for (int rot = 0; rot < dg->piece_rot_count; ++rot) {
+    int original_rot = dg->piece_rot;
+    dg->piece_rot = rot;
+    struct minmax mm = find_min_max_x(dg);
+    for (int x = mm.min; x < mm.max; ++x) {
+      struct dense_grid grid = *dg;
+      grid.piece_x = x;
+
+      int game_over = 0;
+      while (dense_grid_move_piece(&grid, 0, 1)){
+      }
+      if (!dense_grid_move_piece(&grid, 0, -1))
+        game_over = 1;
+      
+      if (!game_over) {
+        int filled_rows = dense_grid_integrate_piece(&grid);
+        float fitness = compute_fitness_sai(sai, &grid, filled_rows);
+        if (fitness > best_fitness) {
+          best_fitness = fitness;
+          best_x = x;
+          best_rot = rot;
+        }
+      }
+    }
+    dg->piece_rot = original_rot;    
+  }
+
+  sai->best_x = best_x;
+  sai->best_rot = best_rot;
+}
+
+void simple_ai_adjust_position(struct simple_ai *sai, struct dense_grid *dg)
+{
+  int x = dg->piece_x;
+  int rot = dg->piece_rot;
+  int moved = 0;
+
+  if (x < sai->best_x) {
+    send_keypress(SDL_SCANCODE_RIGHT);
+    moved = 1;
+  }
+  else if (x > sai->best_x) {
+    send_keypress(SDL_SCANCODE_LEFT);
+    moved = 1;
+  }
+
+  if (rot != sai->best_rot) {
+    send_keypress(SDL_SCANCODE_UP);
+    moved = 1;
+  }
+
+  if (!moved)
+    send_keypress(SDL_SCANCODE_DOWN);
+}
+
+void simple_ai_adjust_position_virtual(
+  struct simple_ai *sai, struct dense_grid *dg
+)
+{
+  while (dg->piece_rot != sai->best_rot) {
+    if (!dense_grid_rotate_piece(dg)) {
+      dense_grid_rotate_piece_backwards_no_check(dg);
+      break;
+    }
+  }
+
+  while (dg->piece_x < sai->best_x) {
+    if (!dense_grid_move_piece(dg, 1, 0)) {
+      dense_grid_move_piece_no_check(dg, -1, 0);
+      break;
+    }
+  }
+
+  while (dg->piece_x > sai->best_x) {
+    if (!dense_grid_move_piece(dg, -1, 0)) {
+      dense_grid_move_piece_no_check(dg, 1, 0);
+      break;
+    }
+  }
+}
+
+int benchmark_ais(
+  unsigned int seed, float a, float b, float c, float d, float e
+)
+{
+  struct ai *ai;
+  struct simple_ai *sai;
+
+  ai = ai_new(a, b, c, d, e);
+  if (!ai)
+    return 0;
+  
+  sai = simple_ai_new(a, b, c, d, e);
+  if (!sai) {
+    ai_delete(ai);
+    return 0;
+  }
+
+  struct dense_grid dg;  
+  int ai_score = 0, sai_score = 0;
+
+  // run ai
+  srand(seed);
+  dense_grid_init(&dg);
+  dense_grid_add_piece(&dg, pieces[rand() % 7], 6, 1);
+  while (1) {
+    ai_run(ai, &dg);
+    ai_adjust_position_virtual(ai, &dg);
+    while (dense_grid_move_piece(&dg, 0, 1)){
+    }
+    dense_grid_move_piece_no_check(&dg, 0, -1);
+    ai_score += dense_grid_integrate_piece_fast(&dg);
+    if (!dense_grid_add_piece(&dg, pieces[rand() % 7], 6, 1)) {
+      break;
+    }
+  }
+
+  // run simple ai
+  srand(seed);
+  dense_grid_init(&dg);
+  dense_grid_add_piece(&dg, pieces[rand() % 7], 6, 1);
+  while (1) {
+    simple_ai_run(sai, &dg);
+    simple_ai_adjust_position_virtual(sai, &dg);
+    while (dense_grid_move_piece(&dg, 0, 1)){
+    }
+    dense_grid_move_piece_no_check(&dg, 0, -1);
+    sai_score += dense_grid_integrate_piece_fast(&dg);
+    if (!dense_grid_add_piece(&dg, pieces[rand() % 7], 6, 1)) {
+      break;
+    }
+  }
+
+  puts("----------------------------------------");
+  printf("AI scored       : %d\n", ai_score);
+  printf("Simple AI scored: %d\n", sai_score);
+  puts("----------------------------------------");
+
+  ai_delete(ai);
+  simple_ai_delete(sai);
+
+  return 1;
 }

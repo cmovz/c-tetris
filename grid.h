@@ -39,6 +39,8 @@ void dense_grid_init(struct dense_grid *dg);
 int dense_grid_add_piece(
   struct dense_grid *dg, struct piece *piece, uint8_t x, uint8_t y
 );
+int dense_grid_rotate_piece(struct dense_grid *dg);
+void dense_grid_rotate_piece_backwards_no_check(struct dense_grid *dg);
 int dense_grid_move_piece(struct dense_grid *dg, int x, int y);
 void dense_grid_move_piece_no_check(struct dense_grid *dg, int x, int y);
 int dense_grid_integrate_piece_fast(struct dense_grid *dg);

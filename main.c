@@ -140,12 +140,16 @@ int main(int argc, char *argv[])
   }
   int use_ai = 0;
   if (argc == 2) {
-    if (strcmp("--ai", argv[1])) {
+    if (strcmp("--ai", argv[1]) == 0)
+      use_ai = 1;
+    else if (strcmp("--benchmark-ais", argv[1]) == 0) {
+      benchmark_ais(time(NULL), A, B, C, D, E);
+      return 0;
+    }
+    else {
       fprintf(stderr, "Usage: %s [--ai]\n", argv[0]);
       return -1;
     }
-    else
-      use_ai = 1;
   }
 
   run_game(use_ai);

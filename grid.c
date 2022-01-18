@@ -239,6 +239,17 @@ int grid_add_piece(struct grid *grid, struct piece *piece, uint8_t x, uint8_t y)
   return 1;
 }
 
+int dense_grid_rotate_piece(struct dense_grid *dg)
+{
+  dg->piece_rot = (dg->piece_rot + 1) & 3;
+  return !dense_grid_check_collision(dg);
+}
+
+void dense_grid_rotate_piece_backwards_no_check(struct dense_grid *dg)
+{
+  dg->piece_rot = (dg->piece_rot + 3) & 3;
+}
+
 int grid_rotate_piece(struct grid *grid)
 {
   grid->dense_grid.piece_rot = (grid->dense_grid.piece_rot + 1) & 3;
