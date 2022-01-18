@@ -16,6 +16,12 @@ struct possible_fit {
 
 static struct minmax find_min_max_x(struct dense_grid *dg);
 
+static int pfs_comp_r(const void *aptr, const void *bptr)
+{
+  const struct possible_fit *a = aptr, *b = bptr;
+  return a->fitness < b->fitness ? 1 : -1;
+}
+
 static int pfs_comp(const void *aptr, const void *bptr)
 {
   const struct possible_fit *a = aptr, *b = bptr;
@@ -153,12 +159,9 @@ void ai_run(struct ai *ai, struct dense_grid *dg)
     dg->piece_rot = original_rot;    
   }
 
-  struct possible_fit *chosen = pfs;
-  for (int i = 1; i < pos; ++i) {
-    if (pfs[i].fitness > chosen->fitness)
-      chosen = pfs + i;
-  }
+  qsort(pfs, pos, sizeof pfs[0], pfs_comp_r);
 
+  struct possible_fit *chosen = pfs;
   struct possible_fit *original_chosen = chosen;
   int max = pos < 20 ? pos : 20;
   for (int i = 0; i < max; ++i) {
