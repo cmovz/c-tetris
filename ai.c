@@ -1,5 +1,6 @@
 #include "ai.h"
 #include "pieces.h"
+#include <stdlib.h>
 #include <SDL2/SDL.h>
 
 struct minmax {
@@ -7,25 +8,12 @@ struct minmax {
   int max;
 };
 
-struct possible_fit {
-  struct dense_grid dg;
-  float fitness;
-  int x;
-  int rot;
-};
-
 static struct minmax find_min_max_x(struct dense_grid *dg);
 
-static int pfs_comp_r(const void *aptr, const void *bptr)
+static int float_cmp(const void *aptr, const void *bptr)
 {
-  const struct possible_fit *a = aptr, *b = bptr;
-  return a->fitness < b->fitness ? 1 : -1;
-}
-
-static int pfs_comp(const void *aptr, const void *bptr)
-{
-  const struct possible_fit *a = aptr, *b = bptr;
-  return a->fitness < b->fitness ? -1 : 1;
+  const float *a = aptr, *b = bptr;
+  return *a < *b ? -1 : 1;
 }
 
 static inline float compute_fitness(
@@ -39,47 +27,86 @@ static inline float compute_fitness(
     - dg->wells_depth * ai->e;
 }
 
-static float compute_median_fitness(struct ai *ai, struct dense_grid *dg, int r)
+static void compute_median_fitness2(
+  struct ai *ai, struct possible_fit *pf, struct possible_fit1 *pf1
+)
 {
-  struct possible_fit pfs[40 * 7];
+  float fitnesses[190];
   int pos = 0;
-
   for (int p = 0; p < PIECE_COUNT; ++p) {
-    struct dense_grid outer_grid = *dg;
+    struct dense_grid outer_grid = pf1->dg;
     dense_grid_add_piece(&outer_grid, pieces[p], 6, 1);
     for (int rot = 0; rot < pieces[p]->rot_count; ++rot) {
       outer_grid.piece_rot = rot;
       struct minmax mm = find_min_max_x(&outer_grid);
       for (int x = mm.min; x < mm.max; ++x, ++pos) {
-        pfs[pos].dg = outer_grid;
-        pfs[pos].dg.piece_x = x;
-        pfs[pos].x = x;
-        pfs[pos].rot = rot;
+        pf1->pfs2[pos].dg = outer_grid;
+        pf1->pfs2[pos].dg.piece_x = x;
 
         int game_over = 0;
-        while (dense_grid_move_piece(&pfs[pos].dg, 0, 1)) { 
+        while (dense_grid_move_piece(&pf1->pfs2[pos].dg, 0, 1)) { 
         }
-        if (!dense_grid_move_piece(&pfs[pos].dg, 0, -1))
+        if (!dense_grid_move_piece(&pf1->pfs2[pos].dg, 0, -1))
           game_over = 1;
         
-        if (game_over)
-          pfs[pos].fitness = -10000000.0f;
+        if (game_over) {
+          pf1->fitness = -10000000.0f;
+          return;
+        }
         else {
-          if (r > 1) {
-            int filled_rows = dense_grid_integrate_piece(&pfs[pos].dg);
-            pfs[pos].fitness = compute_fitness(ai, &pfs[pos].dg, filled_rows);
-          }
-          else
-            pfs[pos].fitness = compute_median_fitness(ai, &pfs[pos].dg, r + 1);
+          int r = dense_grid_integrate_piece(&pf1->pfs2[pos].dg);
+          fitnesses[pos] = compute_fitness(ai, &pf1->pfs2[pos].dg, r);
+          pf1->pfs2[pos].fitness = fitnesses[pos];
         }
       }
     }
   }
 
-  qsort(pfs, pos, sizeof pfs[0], pfs_comp);
+  qsort(fitnesses, pos, sizeof fitnesses[0], float_cmp);
   int median_idx0 = (pos - 1) / 2;
   int median_idx1 = pos / 2;
-  return (pfs[median_idx0].fitness + pfs[median_idx1].fitness) / 2.0f;
+  pf1->fitness = (fitnesses[median_idx0] + fitnesses[median_idx1]) / 2.0f;
+  pf1->pfs2_len = pos;
+}
+
+static void compute_median_fitness1(struct ai *ai, struct possible_fit *pf)
+{
+  float fitnesses[190];
+  int pos = 0;
+  for (int p = 0; p < PIECE_COUNT; ++p) {
+    struct dense_grid outer_grid = pf->dg;
+    dense_grid_add_piece(&outer_grid, pieces[p], 6, 1);
+    for (int rot = 0; rot < pieces[p]->rot_count; ++rot) {
+      outer_grid.piece_rot = rot;
+      struct minmax mm = find_min_max_x(&outer_grid);
+      for (int x = mm.min; x < mm.max; ++x, ++pos) {
+        pf->pfs1[pos].dg = outer_grid;
+        pf->pfs1[pos].dg.piece_x = x;
+
+        int game_over = 0;
+        while (dense_grid_move_piece(&pf->pfs1[pos].dg, 0, 1)) { 
+        }
+        if (!dense_grid_move_piece(&pf->pfs1[pos].dg, 0, -1))
+          game_over = 1;
+        
+        if (game_over) {
+          pf->fitness = -10000000.0f;
+          return;
+        }
+        else {
+          dense_grid_integrate_piece_fast(&pf->pfs1[pos].dg);
+          compute_median_fitness2(ai, pf, pf->pfs1 + pos);
+          fitnesses[pos] = pf->pfs1[pos].fitness;
+        }
+      }
+    }
+  }
+
+  qsort(fitnesses, pos, sizeof fitnesses[0], float_cmp);
+  int median_idx0 = (pos - 1) / 2;
+  int median_idx1 = pos / 2;
+  pf->fitness = (fitnesses[median_idx0] + fitnesses[median_idx1]) / 2.0f;
+  pf->pfs1_len = pos;
 }
 
 static struct minmax find_min_max_x(struct dense_grid *dg)
@@ -117,6 +144,21 @@ static void send_keypress(int scancode)
   SDL_PushEvent(&event);
 }
 
+struct ai *ai_new(float a, float b, float c, float d, float e)
+{
+  struct ai *ai = malloc(sizeof *ai);
+  if (!ai)
+    return NULL;
+
+  ai_init(ai, a, b, c, d, e);
+  return ai;
+}
+
+void ai_delete(struct ai *ai)
+{
+  free(ai);
+}
+
 void ai_init(struct ai *ai, float a, float b, float c, float d, float e)
 {
   ai->a = a;
@@ -126,57 +168,75 @@ void ai_init(struct ai *ai, float a, float b, float c, float d, float e)
   ai->e = e;
   ai->best_x = 0;
   ai->best_rot = 0;
+  ai->pfs_idx = -1;
 }
 
 void ai_run(struct ai *ai, struct dense_grid *dg)
 {
-  struct possible_fit pfs[40];
   int pos = 0;
 
-  for (int rot = 0; rot < dg->piece_rot_count; ++rot) {
-    int original_rot = dg->piece_rot;
-    dg->piece_rot = rot;
-    struct minmax mm = find_min_max_x(dg);
-    for (int x = mm.min; x < mm.max; ++x, ++pos) {
-      pfs[pos].dg = *dg;
-      pfs[pos].dg.piece_x = x;
-      pfs[pos].x = x;
-      pfs[pos].rot = rot;
-
-      int game_over = 0;
-      while (dense_grid_move_piece(&pfs[pos].dg, 0, 1)){
-      }
-      if (!dense_grid_move_piece(&pfs[pos].dg, 0, -1))
-        game_over = 1;
-      
-      if (game_over)
-        pfs[pos].fitness = -10000000.0f;
-      else {
-        int filled_rows = dense_grid_integrate_piece(&pfs[pos].dg);
-        pfs[pos].fitness = compute_fitness(ai, &pfs[pos].dg, filled_rows);
+  if (ai->pfs_idx != -1) {
+    struct possible_fit1 *pfs1 = ai->pfs[ai->pfs_idx].pfs1;
+    struct possible_fit1 *pf1 = NULL;
+     for (int i = 0; i < 190; ++i) {
+      if (pfs1[i].dg.piece_matrices == dg->piece_matrices) {
+        if (!pf1)
+          pf1 = pfs1 + i;
+        else if (pfs1[i].fitness > pf1->fitness)
+          pf1 = pfs1 + i;
       }
     }
-    dg->piece_rot = original_rot;    
+
+    struct possible_fit *pf = ai->pfs;
+    ai->pfs_idx = 0;
+    pf->dg = pf1->dg;
+    pf->pfs1_len = pf1->pfs2_len;
+    for (int i = 0; i < 190; ++i) {
+      pf->pfs1[i].dg = pf1->pfs2[i].dg;
+      pf->pfs1[i].fitness = pf1->pfs2[i].fitness;
+    }
+
+    for (int i = 0; i < pf->pfs1_len; ++i) {
+      compute_median_fitness2(ai, pf, pf->pfs1 + i);
+    }
   }
 
-  qsort(pfs, pos, sizeof pfs[0], pfs_comp_r);
+  else {
+    for (int rot = 0; rot < dg->piece_rot_count; ++rot) {
+      int original_rot = dg->piece_rot;
+      dg->piece_rot = rot;
+      struct minmax mm = find_min_max_x(dg);
+      for (int x = mm.min; x < mm.max; ++x, ++pos) {
+        ai->pfs[pos].dg = *dg;
+        ai->pfs[pos].dg.piece_x = x;
 
-  struct possible_fit *chosen = pfs;
-  struct possible_fit *original_chosen = chosen;
-  int max = pos < 20 ? pos : 20;
-  for (int i = 0; i < max; ++i) {
-    pfs[i].fitness = compute_median_fitness(ai, &pfs[i].dg, 1);
-    if (pfs[i].fitness > chosen->fitness)
-      chosen = pfs + i;
+        int game_over = 0;
+        while (dense_grid_move_piece(&ai->pfs[pos].dg, 0, 1)){
+        }
+        if (!dense_grid_move_piece(&ai->pfs[pos].dg, 0, -1))
+          game_over = 1;
+        
+        if (game_over)
+          ai->pfs[pos].fitness = -10000000.0f;
+        else {
+          dense_grid_integrate_piece_fast(&ai->pfs[pos].dg);
+          compute_median_fitness1(ai, ai->pfs + pos);
+        }
+      }
+      dg->piece_rot = original_rot;    
+    }
   }
 
-  if (chosen != original_chosen)
-    puts("different choice");
-  else
-    puts("same choice");
+  struct possible_fit *chosen = ai->pfs;
+  for (int i = 0; i < pos; ++i) {
+    if (ai->pfs[i].fitness > chosen->fitness) {
+      chosen = ai->pfs + i;
+      ai->pfs_idx = i;
+    }
+  }
 
-  ai->best_x = chosen->x;
-  ai->best_rot = chosen->rot;
+  ai->best_x = chosen->dg.piece_x;
+  ai->best_rot = chosen->dg.piece_rot;
 }
 
 void ai_adjust_position(struct ai *ai, struct dense_grid *dg)

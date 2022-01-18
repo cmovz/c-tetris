@@ -56,10 +56,13 @@ static void run_game(int use_ai)
   grid_init(&grid);
   grid_add_piece(&grid, pieces[rand() % 7], 6, 1);
 
-  struct ai ai;
+  struct ai *ai = NULL;
   if (use_ai) {
-    ai_init(&ai, A, B, C, D, E);
-    ai_run(&ai, &grid.dense_grid);
+    ai = ai_new(A, B, C, D, E);
+    if (!ai)
+      FATAL;
+
+    ai_run(ai, &grid.dense_grid);
   }
 
   struct score score;
@@ -78,7 +81,7 @@ static void run_game(int use_ai)
     uint64_t t0 = now;
 
     if (use_ai)
-      ai_adjust_position(&ai, &grid.dense_grid);
+      ai_adjust_position(ai, &grid.dense_grid);
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -106,7 +109,7 @@ static void run_game(int use_ai)
         break;
       }
       if (use_ai)
-        ai_run(&ai, &grid.dense_grid);
+        ai_run(ai, &grid.dense_grid);
     }
 
     grid_draw(&grid, window_surface);
@@ -119,6 +122,9 @@ static void run_game(int use_ai)
       SDL_Delay((DRAW_TIME - dt) / 1000000);
   }
 
+  if (ai)
+    ai_delete(ai);
+  
   score_destroy(&score);
   textures_quit();
   SDL_DestroyWindow(window);
