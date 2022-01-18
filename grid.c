@@ -172,6 +172,11 @@ int dense_grid_integrate_piece(struct dense_grid * dg)
   return total_filled_lines;
 }
 
+int dense_grid_equal(const struct dense_grid *a, const struct dense_grid *b)
+{
+  return memcmp(a, b, 48) == 0;
+}
+
 void dense_grid_init(struct dense_grid *dg)
 {
   *dg = default_dense_grid;

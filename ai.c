@@ -175,7 +175,7 @@ void ai_run(struct ai *ai, struct dense_grid *dg)
 {
   int pos = 0;
 
-  if (ai->pfs_idx != -1) {
+  if (ai->pfs_idx != -1 && dense_grid_equal(dg, &ai->pfs[ai->pfs_idx].dg)) {
     struct possible_fit1 *pfs1 = ai->pfs[ai->pfs_idx].pfs1;
     struct possible_fit1 *pf1 = NULL;
      for (int i = 0; i < 190; ++i) {

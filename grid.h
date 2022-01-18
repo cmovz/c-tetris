@@ -43,5 +43,6 @@ int dense_grid_move_piece(struct dense_grid *dg, int x, int y);
 void dense_grid_move_piece_no_check(struct dense_grid *dg, int x, int y);
 int dense_grid_integrate_piece_fast(struct dense_grid *dg);
 int dense_grid_integrate_piece(struct dense_grid * dg);
+int dense_grid_equal(const struct dense_grid *a, const struct dense_grid *b);
 
 #endif
