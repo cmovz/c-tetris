@@ -30,10 +30,10 @@ static void dense_grid_compute_stats(struct dense_grid *dg)
   uint8_t heights[16] = {20, 20, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 20, 20};
   int hole_count = 0;
   int aggregate_height = 0;
-  for (int x = 3; x < 13; ++x) {
-    for (int y = 1; y < 21; ++y) {
+  for (int y = 1; y < 21; ++y) {
+    int idx = y >> 2;
+    for (int x = 3; x < 13; ++x) {
       int pos = (y << 4) + x;
-      int idx = y >> 2;
       int shift = pos & 0x3f;
       int filled = (dg->cells[idx] >> shift) & 1;
       if (filled) {
@@ -43,11 +43,8 @@ static void dense_grid_compute_stats(struct dense_grid *dg)
           aggregate_height += h;
         }
       }
-      else {
-        if (heights[x] != 0) {
-          ++hole_count;
-        }
-      }
+      else if (heights[x] != 0)
+        ++hole_count;
     }
   }
 
