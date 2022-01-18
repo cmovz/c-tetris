@@ -119,6 +119,7 @@ static void run_game(int use_ai)
       SDL_Delay((DRAW_TIME - dt) / 1000000);
   }
 
+  score_destroy(&score);
   textures_quit();
   SDL_DestroyWindow(window);
   TTF_Quit();
