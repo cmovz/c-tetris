@@ -143,6 +143,8 @@ void ai_init(struct ai *ai, float a, float b, float c, float d, float e)
 
 void ai_run(struct ai *ai, struct dense_grid *dg)
 {
+  struct dense_grid dgrids[40];
+  struct dense_grid *chosen_grid = NULL;
   int best_x = 6;
   int best_rot = 0;
   float best_fitness = -10000000.0f;
@@ -153,26 +155,48 @@ void ai_run(struct ai *ai, struct dense_grid *dg)
     dg->piece_rot = rot;
     struct minmax mm = find_min_max_x(dg);
     for (int x = mm.min; x < mm.max; ++x, ++pos) {
-      struct dense_grid inner_grid = *dg;
-      inner_grid.piece_x = x;
+      dgrids[pos] = *dg;
+      dgrids[pos].piece_x = x;
 
       int game_over = 0;
-      while (dense_grid_move_piece(&inner_grid, 0, 1)){
+      while (dense_grid_move_piece(dgrids + pos, 0, 1)){
       }
-      if (!dense_grid_move_piece(&inner_grid, 0, -1))
+      if (!dense_grid_move_piece(dgrids + pos, 0, -1))
         game_over = 1;
       
       if (!game_over) {
-        dense_grid_integrate_piece_fast(&inner_grid);
-        float fitness = compute_median_fitness(ai, &inner_grid, 0);
+        int filled_rows = dense_grid_integrate_piece(dgrids + pos);
+        float fitness = compute_fitness(ai, dgrids + pos, filled_rows);
         if (fitness > best_fitness) {
           best_fitness = fitness;
+          chosen_grid = dgrids + pos;
           best_x = x;
           best_rot = rot;
         }
       }
     }
     dg->piece_rot = original_rot;    
+  }
+
+  if (chosen_grid) {
+    struct dense_grid *grid_chosen_next = chosen_grid;
+    int hole_count = chosen_grid->holes;
+    best_fitness = compute_median_fitness(ai, dgrids, 0);
+    best_x = dgrids[0].piece_x;
+    best_rot = dgrids[0].piece_rot;
+    for (int i = 1; i < pos; ++i) { 
+      float fitness = compute_median_fitness(ai, dgrids + i, 0);
+      if (fitness > best_fitness && dgrids[i].holes <= hole_count) {
+        best_x = dgrids[i].piece_x;
+        best_rot = dgrids[i].piece_rot;
+        best_fitness = fitness;
+        grid_chosen_next = dgrids + i;
+      }
+    }
+    if (grid_chosen_next != chosen_grid)
+      puts("changing choice");
+    else
+      puts("same choice");
   }
 
   ai->best_x = best_x;
