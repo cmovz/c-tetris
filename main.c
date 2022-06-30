@@ -24,6 +24,8 @@
 #define C 0.029653844701920895f
 #define D 0.9624658982587024f
 #define E 0.32341412515044743f
+#define F 0.0f
+#define G 0.0f
 
 static void update_time(void)
 {
@@ -58,7 +60,7 @@ static void run_game(int use_ai)
 
   struct ai *ai = NULL;
   if (use_ai) {
-    ai = ai_new(A, B, C, D, E);
+    ai = ai_new(A, B, C, D, E, F, G);
     if (!ai)
       FATAL;
 
@@ -143,7 +145,7 @@ int main(int argc, char *argv[])
     if (strcmp("--ai", argv[1]) == 0)
       use_ai = 1;
     else if (strcmp("--benchmark-ais", argv[1]) == 0) {
-      benchmark_ais(time(NULL), A, B, C, D, E);
+      benchmark_ais(time(NULL), A, B, C, D, E, F, G);
       return 0;
     }
     else {

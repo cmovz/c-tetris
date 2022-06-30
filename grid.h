@@ -12,10 +12,16 @@ struct dense_grid {
   uint8_t piece_y;
   uint8_t piece_rot;
   uint8_t piece_rot_count;
-  uint8_t aggregate_height;
-  uint8_t bumpiness;
-  uint8_t holes;
-  uint8_t wells_depth;
+
+  uint32_t aggregate_height;
+  uint32_t bumpiness;
+  uint32_t holes;
+  uint32_t wells_depth;
+
+  uint32_t blocked_wells_depth; 
+  uint32_t blocking_wells;
+
+  //uint32_t _pad[11];
 };
 
 struct grid {

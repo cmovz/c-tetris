@@ -29,7 +29,9 @@ static inline float compute_fitness_sai(
     - dg->bumpiness * sai->b
     - dg->aggregate_height * sai->c
     - dg->holes * sai->d
-    - dg->wells_depth * sai->e;
+    - dg->wells_depth * sai->e
+    - dg->blocked_wells_depth * sai->f
+    - dg->blocking_wells * sai->g;
 }
 
 static inline float compute_fitness(
@@ -40,7 +42,9 @@ static inline float compute_fitness(
     - dg->bumpiness * ai->b
     - dg->aggregate_height * ai->c
     - dg->holes * ai->d
-    - dg->wells_depth * ai->e;
+    - dg->wells_depth * ai->e
+    - dg->blocked_wells_depth * ai->f
+    - dg->blocking_wells * ai->g;
 }
 
 static float compute_median_fitness(struct ai *ai, struct dense_grid *dg, int r)
@@ -119,13 +123,13 @@ static void send_keypress(int scancode)
   SDL_PushEvent(&event);
 }
 
-struct ai *ai_new(float a, float b, float c, float d, float e)
+struct ai *ai_new(float a, float b, float c, float d, float e, float f, float g)
 {
   struct ai *ai = malloc(sizeof *ai);
   if (!ai)
     return NULL;
 
-  ai_init(ai, a, b, c, d, e);
+  ai_init(ai, a, b, c, d, e, f, g);
   return ai;
 }
 
@@ -134,13 +138,17 @@ void ai_delete(struct ai *ai)
   free(ai);
 }
 
-void ai_init(struct ai *ai, float a, float b, float c, float d, float e)
+void ai_init(
+  struct ai *ai, float a, float b, float c, float d, float e, float f, float g
+)
 {
   ai->a = a;
   ai->b = b;
   ai->c = c;
   ai->d = d;
   ai->e = e;
+  ai->f = f;
+  ai->g = g;
   ai->best_x = 0;
   ai->best_rot = 0;
 }
@@ -256,13 +264,15 @@ void ai_adjust_position_virtual(struct ai *ai, struct dense_grid *dg)
   }
 }
 
-struct simple_ai *simple_ai_new(float a, float b, float c, float d, float e)
+struct simple_ai *simple_ai_new(
+  float a, float b, float c, float d, float e, float f, float g
+)
 {
   struct simple_ai *sai = malloc(sizeof *sai);
   if (!sai)
     return NULL;
   
-  simple_ai_init(sai, a, b, c, d, e);
+  simple_ai_init(sai, a, b, c, d, e, f, g);
   return sai;
 }
 
@@ -272,7 +282,8 @@ void simple_ai_delete(struct simple_ai *sai)
 }
 
 void simple_ai_init(
-  struct simple_ai *sai, float a, float b, float c, float d, float e
+  struct simple_ai *sai, float a, float b, float c, float d, float e, float f,
+  float g
 )
 {
   sai->a = a;
@@ -280,6 +291,8 @@ void simple_ai_init(
   sai->c = c;
   sai->d = d;
   sai->e = e;
+  sai->f = f;
+  sai->g = g;
   sai->best_x = 0;
   sai->best_rot = 0;
 }
@@ -372,17 +385,18 @@ void simple_ai_adjust_position_virtual(
 }
 
 int benchmark_ais(
-  unsigned int seed, float a, float b, float c, float d, float e
+  unsigned int seed, float a, float b, float c, float d, float e, float f,
+  float g
 )
 {
   struct ai *ai;
   struct simple_ai *sai;
 
-  ai = ai_new(a, b, c, d, e);
+  ai = ai_new(a, b, c, d, e, f, g);
   if (!ai)
     return 0;
   
-  sai = simple_ai_new(a, b, c, d, e);
+  sai = simple_ai_new(a, b, c, d, e, f, g);
   if (!sai) {
     ai_delete(ai);
     return 0;

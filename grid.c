@@ -9,7 +9,7 @@ static struct dense_grid default_dense_grid = {
     0xe007e007e007ffff,0xe007e007e007e007,0xe007e007e007e007,
     0xe007e007e007e007,0xe007e007e007e007,0xffffffffffffe007
   },
-  0, 0, 0, 0, 0, 0, 0, 0, 0
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
 static int dense_grid_check_collision(struct dense_grid *dg)
@@ -30,21 +30,52 @@ static void dense_grid_compute_stats(struct dense_grid *dg)
   uint8_t heights[16] = {20, 20, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 20, 20};
   int hole_count = 0;
   int aggregate_height = 0;
-  for (int y = 1; y < 21; ++y) {
-    int idx = y >> 2;
-    for (int x = 3; x < 13; ++x) {
+  dg->blocked_wells_depth = 0;
+  dg->blocking_wells = 0;
+  for (int x = 3; x < 13; ++x) {
+    int blocks_above = 0;
+    int well_depth = 0;
+    int is_filled_above = 0;
+    for (int y = 1; y < 21; ++y) {
+      int idx = y >> 2;
       int pos = (y << 4) + x;
       int shift = pos & 0x3f;
       int filled = (dg->cells[idx] >> shift) & 1;
       if (filled) {
+        if (is_filled_above)
+          ++blocks_above;
+        else {
+          if (well_depth > 1) {
+            dg->blocked_wells_depth += well_depth;
+            dg->blocking_wells += blocks_above;
+          }
+          blocks_above = 1;
+          well_depth = 0;
+        }
+
         if (heights[x] == 0) {
           int h = 21 - y;
           heights[x] = h;
           aggregate_height += h;
         }
+
+        is_filled_above = 1;
       }
-      else if (heights[x] != 0)
-        ++hole_count;
+      else {
+        if (heights[x] != 0) {
+          ++hole_count;
+
+          if (is_filled_above)
+            well_depth = 1;
+          else if (well_depth > 0)
+            ++well_depth;
+        }
+        is_filled_above = 0;
+      }
+    }
+    if (well_depth > 1) {
+      dg->blocked_wells_depth += well_depth;
+      dg->blocking_wells += blocks_above;
     }
   }
 
