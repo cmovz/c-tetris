@@ -14,7 +14,11 @@ static struct minmax find_min_max_x(struct dense_grid *dg);
 static int float_cmp(const void *aptr, const void *bptr)
 {
   const float *a = aptr, *b = bptr;
-  return *a < *b ? -1 : 1;
+  if (*a < *b)
+    return -1;
+  if (*a > *b)
+    return 1;
+  return 0;
 }
 
 static inline float compute_fitness_sai(
