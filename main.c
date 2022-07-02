@@ -19,13 +19,13 @@
 #define MAX_FPS 12
 #define DRAW_TIME (1000000000 / MAX_FPS)
 
-#define A 0.11146253876595202f
-#define B 0.12392743901965475f
-#define C 0.029653844701920895f
-#define D 0.9624658982587024f
-#define E 0.32341412515044743f
-#define F 0.0f
-#define G 0.0f
+#define A 0.103831f
+#define B 0.164168f
+#define C 0.012872f
+#define D 0.962466f
+#define E 0.206230f
+#define F 0.000000f
+#define G 0.004796f
 
 static void update_time(void)
 {
