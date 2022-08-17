@@ -13,6 +13,6 @@ struct queue {
 
 void queue_init(struct queue *q, long id);
 long enqueue(struct queue *q, void *ptr);
-void *spin_dequeue(struct queue *q);
+void *dequeue(struct queue *q);
 
 #endif

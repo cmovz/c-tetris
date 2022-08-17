@@ -16,7 +16,7 @@
 
 #define FALLING_PER_SECOND 1
 #define ACTIONS_PER_SECOND 12
-#define MAX_FPS 12
+#define MAX_FPS 60
 #define DRAW_TIME (1000000000 / MAX_FPS)
 
 #define A 0.103831f
@@ -63,8 +63,12 @@ static void run_game(int use_ai)
     ai = ai_new(A, B, C, D, E, F, G);
     if (!ai)
       FATAL;
+    
+    if (!ai_init_worker())
+      FATAL;
 
-    ai_run(ai, &grid.dense_grid);
+    if (!ai_run_async(ai, &grid.dense_grid))
+      FATAL;
   }
 
   struct score score;
@@ -110,8 +114,8 @@ static void run_game(int use_ai)
         running = 0;
         break;
       }
-      if (use_ai)
-        ai_run(ai, &grid.dense_grid);
+      if (use_ai && !ai_run_async(ai, &grid.dense_grid))
+        FATAL;
     }
 
     grid_draw(&grid, window_surface);

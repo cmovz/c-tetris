@@ -1,3 +1,5 @@
+#define _DEFAULT_SOURCE
+
 #include "queue.h"
 #include "barrier.h"
 #include <unistd.h>
@@ -25,11 +27,11 @@ long enqueue(struct queue *q, void *ptr)
   return 0;
 }
 
-void *spin_dequeue(struct queue *q)
+void *dequeue(struct queue *q)
 {
   barrier();
   while (q->dequeue_pos == q->enqueue_pos) {
-    usleep(0);
+    usleep(1000);
     barrier();
   }
 

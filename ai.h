@@ -13,6 +13,7 @@ struct ai {
   float g;
   int best_x;
   int best_rot;
+  int pending_answer;
 };
 
 struct simple_ai {
@@ -27,6 +28,8 @@ struct simple_ai {
   int best_rot;
 };
 
+int ai_init_worker(void);
+
 struct ai *ai_new(
   float a, float b, float c, float d, float e, float f, float g
 );
@@ -35,6 +38,7 @@ void ai_init(
   struct ai *ai, float a, float b, float c, float d, float e, float f, float g
 );
 void ai_run(struct ai *ai, struct dense_grid *dg);
+int ai_run_async(struct ai *ai, struct dense_grid *dg);
 void ai_adjust_position(struct ai *ai, struct dense_grid *dg);
 void ai_adjust_position_virtual(struct ai *ai, struct dense_grid *dg);
 

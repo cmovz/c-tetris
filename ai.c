@@ -1,15 +1,40 @@
+#define _GNU_SOURCE
+
 #include "ai.h"
+#include "queue.h"
 #include "pieces.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <sched.h>
 #include <SDL2/SDL.h>
+
+#define STACK_SIZE (1024 * 1024 * 8)
 
 struct minmax {
   int min;
   int max;
 };
 
+struct work {
+  struct dense_grid dg;
+  struct ai *ai;
+};
+
+static struct queue work_queue;
+
 static struct minmax find_min_max_x(struct dense_grid *dg);
+
+static int do_work(void *queue)
+{
+  while (1) {
+    struct work *work = dequeue(queue);
+    ai_run(work->ai, &work->dg);
+    work->ai->pending_answer = 0;
+    free(work);
+  }
+
+  return 0;
+}
 
 static int float_cmp(const void *aptr, const void *bptr)
 {
@@ -123,6 +148,27 @@ static void send_keypress(int scancode)
   SDL_PushEvent(&event);
 }
 
+int ai_init_worker(void)
+{
+  // spawn thread
+  int clone_flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SYSVSEM
+    | CLONE_SIGHAND | CLONE_THREAD;
+  char *stack = malloc(STACK_SIZE);
+  if (!stack) {
+    perror("malloc()");
+    return 0;
+  }
+  if (clone(do_work, stack + STACK_SIZE, clone_flags, &work_queue) == -1) {
+    perror("clone()");
+    free(stack);
+    return 0;
+  }
+
+  queue_init(&work_queue, 0);
+
+  return 1;
+}
+
 struct ai *ai_new(float a, float b, float c, float d, float e, float f, float g)
 {
   struct ai *ai = malloc(sizeof *ai);
@@ -151,6 +197,7 @@ void ai_init(
   ai->g = g;
   ai->best_x = 0;
   ai->best_rot = 0;
+  ai->pending_answer = 1;
 }
 
 void ai_run(struct ai *ai, struct dense_grid *dg)
@@ -215,9 +262,29 @@ void ai_run(struct ai *ai, struct dense_grid *dg)
   ai->best_rot = best_rot;
 }
 
+int ai_run_async(struct ai *ai, struct dense_grid *dg)
+{
+  struct work *work = malloc(sizeof(*work));
+  if (!work)
+    return 0;
+  
+  work->dg = *dg;
+  work->ai = ai;
+  ai->pending_answer = 1;
+
+  if (enqueue(&work_queue, work) == -1) {
+    free(work);
+    return 0;
+  }
+
+  return 1;
+}
 
 void ai_adjust_position(struct ai *ai, struct dense_grid *dg)
 {
+  if (ai->pending_answer)
+    return;
+
   int x = dg->piece_x;
   int rot = dg->piece_rot;
   int moved = 0;
