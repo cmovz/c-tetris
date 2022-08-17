@@ -3,6 +3,7 @@
 #include "ai.h"
 #include "queue.h"
 #include "pieces.h"
+#include "barrier.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <sched.h>
@@ -29,6 +30,7 @@ static int do_work(void *queue)
   while (1) {
     struct work *work = dequeue(queue);
     ai_run(work->ai, &work->dg);
+    barrier();
     work->ai->pending_answer = 0;
     free(work);
   }
@@ -282,6 +284,7 @@ int ai_run_async(struct ai *ai, struct dense_grid *dg)
 
 void ai_adjust_position(struct ai *ai, struct dense_grid *dg)
 {
+  barrier();
   if (ai->pending_answer)
     return;
 
