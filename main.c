@@ -40,12 +40,11 @@ static void run_game(int use_ai)
     fprintf(stderr, "%s\n", SDL_GetError());
     FATAL;
   }
-  if (TTF_Init() == -1) {
+  if (TTF_Init() == -1)
     FATAL;
-  }
-  if (!textures_init()) {
+  if (!textures_init())
     FATAL;
-  }
+
   update_time();
   srand(time(NULL));
 
