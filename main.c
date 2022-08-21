@@ -51,6 +51,9 @@ static void run_game(int use_ai)
   SDL_Window *window = SDL_CreateWindow(
     "Tetris", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 12*24, 22*24, 0
   );
+  if (!window)
+    FATAL;
+
   SDL_Surface *window_surface = SDL_GetWindowSurface(window);
 
   struct grid grid;
